@@ -1,6 +1,50 @@
+# The module defines the following variables:
+#  PORTAUDIO_FOUND - the system has Portaudio
+#  PORTAUDIO_ROOT - where to find includes
+#  PORTAUDIO_INCLUDE_DIRS - qwt includes
+#  PORTAUDIO_LIBRARIES - aditional libraries
+#  PORTAUDIO_VERSION_STRING - version (ex. 5.2.1)
+#  PORTAUDIO_ROOT_DIR - root dir (ex. /usr/local)
 
-find_path(PORTAUDIO_INCLUDE_DIR NAMES portaudio.h PATHS ${CONAN_INCLUDE_DIRS_PORTAUDIO})
-find_library(PORTAUDIO_LIBRARY NAMES ${CONAN_LIBS_PORTAUDIO} PATHS ${CONAN_LIB_DIRS_PORTAUDIO})
+#=============================================================================
+# Copyright 2010-2013, Julien Schueller
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met: 
+# 
+# 1. Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer. 
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution. 
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# The views and conclusions contained in the software and documentation are those
+# of the authors and should not be interpreted as representing official policies, 
+# either expressed or implied, of the FreeBSD Project.
+#=============================================================================
+find_path(PORTAUDIO_INCLUDE_DIR
+            NAMES portaudio.h
+            HINTS ${PORTAUDIO_ROOT}
+            )
+
+find_library ( PORTAUDIO_LIBRARY
+                NAMES portaudio portaudio_x86 portaudio_static_x86 portaudio_x64 portaudio_static_x64
+                PATHS lib
+                )
+            
+set ( PORTAUDIO_LIBRARies ${PORTAUDIO_LIBRARY} )
 
 IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
    SET(EXTRA_LIBS rt m asound pthread)
@@ -34,8 +78,11 @@ set(PORTAUDIO_LIBRARIES ${PORTAUDIO_LIBRARY} ${EXTRA_LIBS})
 
 mark_as_advanced(PORTAUDIO_LIBRARY PORTAUDIO_INCLUDE_DIR)
 
-message("** Portaudio found by Conan!")
 set(PORTAUDIO_FOUND TRUE)
-message("   - libraries:  ${PORTAUDIO_LIBRARIES}")
-message("   - includes:  ${PORTAUDIO_INCLUDE_DIRS}")
 
+if (${PORTAUDIO_FOUND})
+add_library(Portaudio::Portaudio INTERFACE IMPORTED)
+set_target_properties(Portaudio::Portaudio PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${PORTAUDIO_INCLUDE_DIRS}"
+    INTERFACE_LINK_LIBRARIES "${PORTAUDIO_LIBRARIES}")
+endif()

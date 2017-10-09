@@ -10,9 +10,10 @@ class ConanRecipe(ConanFile):
     description = "Conan package for the Portaudio library"
     url = "https://github.com/jgsogo/conan-portaudio"
     license = "http://www.portaudio.com/license.html"
-    options = {"shared": [True, False], "fPIC": [True, False]}
-    default_options = "shared=False", "fPIC=True"
-    exports = ["FindPortaudio.cmake",]
+    options = {"shared": [True, False], "fPIC": [True, False], "use_asio": [True, False]}
+    default_options = "shared=False", "fPIC=True", "use_asio=True"
+    exports_sources = ["FindPortaudio.cmake"]
+    generators = "txt"
 
     WIN = {'build_dirname': "_build"}
 
@@ -20,6 +21,10 @@ class ConanRecipe(ConanFile):
         del self.settings.compiler.libcxx
         if self.settings.os == "Windows":
             self.options.remove("fPIC")
+
+    def requirements(self):
+        if self.options.use_asio:
+            self.requires("AsioSDK/2.3@kenfred/testing")
 
     def system_requirements(self):
         if os_info.is_linux:
@@ -67,26 +72,43 @@ class ConanRecipe(ConanFile):
 
             build_dirname = self.WIN['build_dirname']
 
-            cmake = CMake(self.settings)
+            cmake = CMake(self)
 
-            if self.settings.os == "Windows":
-                self.run("IF not exist {} mkdir {}".format(build_dirname, build_dirname))
+            if not os.path.exists(build_dirname):
+                os.makedirs(build_dirname)
+
+            defs = dict()
+            defs['CMAKE_BUILD_TYPE'] = self.settings.build_type
+            if self.options.use_asio:
+                defs['ASIOSDK_PATH_HINT'] = "%s/ASIOSDK2.3" % self.deps_cpp_info["AsioSDK"].rootpath
+
+            runtime_string = "%s" % self.settings.compiler.runtime
+            if runtime_string[:2] == "MT":
+                defs['PA_DLL_LINK_WITH_STATIC_RUNTIME'] = True
             else:
-                self.run("mkdir {}".format(build_dirname))
+                defs['PA_DLL_LINK_WITH_STATIC_RUNTIME'] = False
 
-            cmake_command = 'cd {} && cmake {} {}'.format(build_dirname, os.path.join("..", self.FOLDER_NAME), cmake.command_line)
-            self.output.info(cmake_command)
-            self.run(cmake_command)
-
-            build_command = "cd {} && cmake --build . {}".format(build_dirname, cmake.build_config)
-            self.output.info(build_command)
-            self.run(build_command)
+            cmake.configure(source_dir="../%s" % self.FOLDER_NAME, build_dir=build_dirname, defs=defs)
+            cmake.build()
 
     def package(self):
         self.copy("FindPortaudio.cmake", ".", ".")
+        self.copy("portaudio/bindings/cpp/include/portaudiocpp/*", dst="include/portaudiocpp", keep_path=False)
+        self.copy("portaudio/bindings/cpp/source/portaudiocpp/*", dst="source/portaudiocpp", keep_path=False)
         self.copy("*.h", dst="include", src=os.path.join(self.FOLDER_NAME, "include"))
 
-        self.copy(pattern="LICENSE*", dst="licenses", src=self.FOLDER_NAME,  ignore_case=True, keep_path=False)
+        os_folder = "win" if self.settings.os == "Windows" else "unix"
+
+        self.copy("*.h", src=os.path.join(self.FOLDER_NAME, "src", "os", os_folder), dst=os.path.join("include","os", os_folder), ignore_case=True, keep_path=False)
+
+        self.copy(pattern="LICENSE*", dst="licenses", src=self.FOLDER_NAME, ignore_case=True, keep_path=False)
+
+        cpp_bindings_path = os.path.join(self.FOLDER_NAME, "bindings", "cpp")
+        cpp_bindings_src_path = os.path.join(cpp_bindings_path, "source", "portaudiocpp")
+        cpp_bindings_include_path = os.path.join(cpp_bindings_path, "include", "portaudiocpp")
+        self.copy(pattern="*.cxx", src=cpp_bindings_src_path, dst=os.path.join("bindings","cpp","src"), ignore_case=True, keep_path=False)
+        self.copy(pattern="*.hxx", src=cpp_bindings_include_path, dst=os.path.join("include", "portaudiocpp"), ignore_case=True, keep_path=False)
+        
         
         if self.settings.os == "Windows":
             build_dirname = self.WIN['build_dirname']
